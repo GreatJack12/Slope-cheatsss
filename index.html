@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="theme-color" content="#231F20">
+    <title>Slope</title>
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="canvas-container"></div>
+    <script>
+      window.addEventListener('load', function() {
+        var canvas = document.querySelector('#canvas-container');
+        var config = {
+          "memory": 268435456,
+          "powerPreference": "high-performance",
+          "canvas": canvas,
+          "dataUrl": "Build/slope_data.unityweb",
+          "frameworkUrl": "Build/slope_framework.unityweb",
+          "codeUrl": "Build/slope_wasmcode.unityweb",
+          "memoryUrl": "Build/slope_wasmframework.unityweb",
+          "wasmCodeUrl": "Build/slope_wasmcode.unityweb",
+          "wasmFrameworkUrl": "Build/slope_wasmframework.unityweb",
+        };
+        var script = document.createElement('script');
+        script.src = config.codeUrl;
+        script.async = true;
+        document.body.appendChild(script);
+        window.onload = function() {
+          window.WebGLGame = window.WebGLGame || {};
+          window.WebGLGame.config = config;
+          window.WebGLGame.config.codeUrl = config.codeUrl;
+          window.WebGLGame.config.frameworkUrl = config.frameworkUrl;
+          window.WebGLGame.config.dataUrl = config.dataUrl;
+          window.WebGLGame.config.memoryUrl = config.memoryUrl;
+          window.WebGLGame.config.wasmCodeUrl = config.wasmCodeUrl;
+          window.WebGLGame.config.wasmFrameworkUrl = config.wasmFrameworkUrl;
+          window.WebGLGame.config.memory = config.memory;
+          window.WebGLGame.config.powerPreference = config.powerPreference;
+          window.WebGLGame.config.canvas = config.canvas;
+        };
+      });
+    </script>
+    <script src="TemplateData/unityloader41.js"></script>
+    <!-- Cheat code injection -->
+    <script src="cheats.js"></script>
+  </body>
+</html>
