@@ -6,30 +6,52 @@
     <meta name="theme-color" content="#231F20">
     <title>Slope</title>
     <link rel="stylesheet" href="TemplateData/style.css">
+    <script src="TemplateData/UnityProgress.js"></script>
   </head>
   <body>
-    <canvas id="gameCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
-    <script src="TemplateData/UnityProgress.js"></script>
-    <script>
-      var canvas = document.getElementById("gameCanvas");
-      var config = {
-        "memory": 268435456,
-        "powerPreference": "high-performance",
-        "canvas": canvas,
-        "dataUrl": "Build/slope_data.unityweb",
-        "frameworkUrl": "Build/slope_framework.unityweb",
-        "codeUrl": "Build/slope_wasmcode.unityweb",
-        "memoryUrl": "Build/slope_memory.unityweb",
-        "wasmCodeUrl": "Build/slope_wasmcode.unityweb",
-        "wasmFrameworkUrl": "Build/slope_wasmframework.unityweb",
-        "jsonUrl": "Build/slope.json",
-        "loadingImage": "TemplateData/progressLogo.Dark.png",
-        "powerPreference": "high-performance"
-      };
-      window.WebGLGame = window.WebGLGame || {};
-      window.WebGLGame.config = config;
-    </script>
+    <div id="gameContainer" class="webgl-content"></div>
     <script src="TemplateData/unityloader41.js"></script>
+    <script>
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/slope.json";
+      var container = document.querySelector("#gameContainer");
+      var canvas = document.createElement("canvas");
+      canvas.id = "canvas";
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      container.appendChild(canvas);
+      
+      var gameInstance = null;
+      
+      var config = {
+        dataUrl: buildUrl + "/slope_data.unityweb",
+        frameworkUrl: buildUrl + "/slope_framework.unityweb", 
+        codeUrl: buildUrl + "/slope_wasmcode.unityweb",
+        memoryUrl: buildUrl + "/slope_memory.unityweb",
+        wasmCodeUrl: buildUrl + "/slope_wasmcode.unityweb",
+        wasmFrameworkUrl: buildUrl + "/slope_wasmframework.unityweb",
+        jsonUrl: loaderUrl,
+        graphicsAPI: ["WebGL 2.0", "WebGL 1.0"],
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "IDnet",
+        productName: "Slope",
+        productVersion: "1.0",
+        showBanner: UnityProgress,
+        canvas: canvas,
+        canFullscreen: true,
+        containerElements: ["gameContainer"]
+      };
+      
+      if (/iPhone|iPad|iPod|Android/g.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+        document.body.className = "unity-mobile";
+      }
+      
+      window.addEventListener('resize', function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+    </script>
     <script src="cheats.js"></script>
   </body>
 </html>
