@@ -10,48 +10,67 @@
   </head>
   <body>
     <div id="gameContainer" class="webgl-content"></div>
-    <script src="TemplateData/unityloader41.js"></script>
+    
     <script>
-      var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/slope.json";
-      var container = document.querySelector("#gameContainer");
       var canvas = document.createElement("canvas");
-      canvas.id = "canvas";
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      container.appendChild(canvas);
+      canvas.id = "unity-canvas";
+      document.getElementById("gameContainer").appendChild(canvas);
       
-      var gameInstance = null;
+      var unityInstance = null;
       
-      var config = {
-        dataUrl: buildUrl + "/slope_data.unityweb",
-        frameworkUrl: buildUrl + "/slope_framework.unityweb", 
-        codeUrl: buildUrl + "/slope_wasmcode.unityweb",
-        memoryUrl: buildUrl + "/slope_memory.unityweb",
-        wasmCodeUrl: buildUrl + "/slope_wasmcode.unityweb",
-        wasmFrameworkUrl: buildUrl + "/slope_wasmframework.unityweb",
-        jsonUrl: loaderUrl,
+      var gameConfig = {
+        dataUrl: "Build/slope_data.unityweb",
+        frameworkUrl: "Build/slope_framework.unityweb",
+        codeUrl: "Build/slope_wasmcode.unityweb",
+        memoryUrl: "Build/slope_memory.unityweb",
+        wasmCodeUrl: "Build/slope_wasmcode.unityweb",
+        wasmFrameworkUrl: "Build/slope_wasmframework.unityweb",
+        TOTAL_MEMORY: 268435456,
         graphicsAPI: ["WebGL 2.0", "WebGL 1.0"],
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "IDnet",
-        productName: "Slope",
-        productVersion: "1.0",
-        showBanner: UnityProgress,
-        canvas: canvas,
-        canFullscreen: true,
-        containerElements: ["gameContainer"]
+        webglContextAttributes: {"preserveDrawingBuffer": false},
+        splashScreenStyle: "Dark",
+        backgroundColor: "#231F20"
       };
       
-      if (/iPhone|iPad|iPod|Android/g.test(navigator.userAgent)) {
-        container.className = "unity-mobile";
-        document.body.className = "unity-mobile";
+      function loadUnity() {
+        if (window.UnityLoader !== undefined) {
+          unityInstance = window.UnityLoader.instantiate("gameContainer", "Build/slope.json", {onProgress: UnityProgress});
+        } else if (typeof window.createUnityInstance === 'function') {
+          window.createUnityInstance(canvas, gameConfig, function(progress) {
+            if (typeof UnityProgress !== 'undefined') {
+              UnityProgress({}, progress);
+            }
+          }).then(function(unityInstance) {
+            window.unityInstance = unityInstance;
+          }).catch(function(message) {
+            console.error("Failed to load Unity:", message);
+          });
+        } else {
+          console.error("Unity loader not found");
+        }
       }
       
+      // Handle window resize
       window.addEventListener('resize', function() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        var container = document.getElementById("gameContainer");
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
       });
+      
+      // Mobile detection
+      if (/iPhone|iPad|iPod|Android/g.test(navigator.userAgent)) {
+        document.getElementById("gameContainer").className += " unity-mobile";
+        document.body.className += " unity-mobile";
+      }
+      
+      // Load Unity when document is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadUnity);
+      } else {
+        loadUnity();
+      }
     </script>
+    
     <script src="cheats.js"></script>
   </body>
 </html>
