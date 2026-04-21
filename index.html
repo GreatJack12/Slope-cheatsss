@@ -7,18 +7,14 @@
     <title>Slope</title>
     <link rel="stylesheet" href="TemplateData/style.css">
     <script src="TemplateData/UnityProgress.js"></script>
-    <script src="TemplateData/unityloader41.js"></script>
   </head>
   <body>
-    <div id="gameContainer" class="webgl-content"></div>
+    <div id="gameContainer" class="webgl-content">
+      <canvas id="unity-canvas"></canvas>
+    </div>
     
     <script>
-      var canvas = document.createElement("canvas");
-      canvas.id = "unity-canvas";
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      document.getElementById("gameContainer").appendChild(canvas);
-      
+      // Configure game
       var gameConfig = {
         dataUrl: "Build/slope_data.unityweb",
         frameworkUrl: "Build/slope_framework.unityweb",
@@ -32,55 +28,13 @@
         splashScreenStyle: "Dark",
         backgroundColor: "#231F20"
       };
-      
-      function loadUnity() {
-        try {
-          // Try using UnityLoader if available
-          if (typeof window.UnityLoader !== 'undefined') {
-            console.log("Using UnityLoader...");
-            var unityInstance = window.UnityLoader.instantiate("gameContainer", "Build/slope.json", {onProgress: UnityProgress});
-            window.unityInstance = unityInstance;
-          } else if (typeof window.createUnityInstance === 'function') {
-            // Try createUnityInstance
-            console.log("Using createUnityInstance...");
-            window.createUnityInstance(canvas, gameConfig, function(progress) {
-              if (typeof UnityProgress !== 'undefined') {
-                UnityProgress({Module: {splashScreenStyle: 'Dark'}, container: document.getElementById("gameContainer"), progress: {}}, progress);
-              }
-            }).then(function(unityInstance) {
-              window.unityInstance = unityInstance;
-            }).catch(function(message) {
-              console.error("Failed to load Unity:", message);
-            });
-          } else {
-            console.error("No Unity loader found. Available methods:", Object.keys(window).filter(k => k.includes('Unity') || k.includes('unity')));
-          }
-        } catch(e) {
-          console.error("Error loading Unity:", e);
-        }
-      }
-      
-      // Handle window resize
-      window.addEventListener('resize', function() {
-        var container = document.getElementById("gameContainer");
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
-      });
-      
-      // Mobile detection
-      if (/iPhone|iPad|iPod|Android/g.test(navigator.userAgent)) {
-        document.getElementById("gameContainer").className += " unity-mobile";
-        document.body.className += " unity-mobile";
-      }
-      
-      // Load Unity when document is ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadUnity);
-      } else {
-        loadUnity();
-      }
+
+      window.WebGLGame = window.WebGLGame || {};
+      window.WebGLGame.config = gameConfig;
+      window.WebGLGame.config.canvas = document.getElementById('unity-canvas');
     </script>
     
+    <script src="TemplateData/unityloader41.js"></script>
     <script src="cheats.js"></script>
   </body>
 </html>
