@@ -7,6 +7,7 @@
     <title>Slope</title>
     <link rel="stylesheet" href="TemplateData/style.css">
     <script src="TemplateData/UnityProgress.js"></script>
+    <script src="TemplateData/unityloader41.js"></script>
   </head>
   <body>
     <div id="gameContainer" class="webgl-content"></div>
@@ -14,9 +15,9 @@
     <script>
       var canvas = document.createElement("canvas");
       canvas.id = "unity-canvas";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
       document.getElementById("gameContainer").appendChild(canvas);
-      
-      var unityInstance = null;
       
       var gameConfig = {
         dataUrl: "Build/slope_data.unityweb",
@@ -33,20 +34,29 @@
       };
       
       function loadUnity() {
-        if (window.UnityLoader !== undefined) {
-          unityInstance = window.UnityLoader.instantiate("gameContainer", "Build/slope.json", {onProgress: UnityProgress});
-        } else if (typeof window.createUnityInstance === 'function') {
-          window.createUnityInstance(canvas, gameConfig, function(progress) {
-            if (typeof UnityProgress !== 'undefined') {
-              UnityProgress({}, progress);
-            }
-          }).then(function(unityInstance) {
+        try {
+          // Try using UnityLoader if available
+          if (typeof window.UnityLoader !== 'undefined') {
+            console.log("Using UnityLoader...");
+            var unityInstance = window.UnityLoader.instantiate("gameContainer", "Build/slope.json", {onProgress: UnityProgress});
             window.unityInstance = unityInstance;
-          }).catch(function(message) {
-            console.error("Failed to load Unity:", message);
-          });
-        } else {
-          console.error("Unity loader not found");
+          } else if (typeof window.createUnityInstance === 'function') {
+            // Try createUnityInstance
+            console.log("Using createUnityInstance...");
+            window.createUnityInstance(canvas, gameConfig, function(progress) {
+              if (typeof UnityProgress !== 'undefined') {
+                UnityProgress({Module: {splashScreenStyle: 'Dark'}, container: document.getElementById("gameContainer"), progress: {}}, progress);
+              }
+            }).then(function(unityInstance) {
+              window.unityInstance = unityInstance;
+            }).catch(function(message) {
+              console.error("Failed to load Unity:", message);
+            });
+          } else {
+            console.error("No Unity loader found. Available methods:", Object.keys(window).filter(k => k.includes('Unity') || k.includes('unity')));
+          }
+        } catch(e) {
+          console.error("Error loading Unity:", e);
         }
       }
       
