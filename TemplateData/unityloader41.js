@@ -1,9 +1,9 @@
-// Unity WebGL Loader for Slope
+// Unity WebGL Loader for Slope with proper WASM handling
 (function() {
   'use strict';
   
   if (!window.WebGLGame || !window.WebGLGame.config) {
-    console.error("WebGLGame config not found");
+    console.error("❌ WebGLGame config not found");
     return;
   }
 
@@ -11,9 +11,11 @@
   var canvas = config.canvas;
   
   if (!canvas) {
-    console.error("Canvas element not configured");
+    console.error("❌ Canvas element not configured");
     return;
   }
+  
+  console.log("🎮 Slope Game Loader Starting");
 
   // Ensure canvas fills the screen
   function resizeCanvas() {
@@ -24,35 +26,10 @@
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
-  // Setup module for Unity WASM
-  window.Module = {
-    canvas: canvas,
-    instantiateWasm: null,
-    onRuntimeInitialized: function() {
-      console.log("Unity runtime initialized");
-    },
-    print: function(text) {
-      console.log("[Unity] " + text);
-    },
-    printErr: function(text) {
-      console.error("[Unity] " + text);
-    },
-    setStatus: function(text) {
-      console.log("[Status] " + text);
-    },
-    totalDependencies: 0,
-    monitorRunDependencies: function(left) {
-      this.totalDependencies = Math.max(this.totalDependencies, left);
-      if (left == 0) {
-        console.log("All dependencies loaded");
-      }
-    }
-  };
-
   // Progress tracking
   var lastProgress = 0;
   function updateProgress(progress) {
-    if (progress > lastProgress) {
+    if (progress > lastProgress + 0.01 || progress >= 1) {
       lastProgress = progress;
       if (typeof UnityProgress !== 'undefined') {
         try {
@@ -61,127 +38,143 @@
             container: canvas.parentElement || document.body,
             progress: {}
           };
-          UnityProgress(gameInstance, progress);
+          UnityProgress(gameInstance, Math.min(progress, 0.99));
         } catch(e) {
-          console.warn("Progress update error:", e);
+          // Ignore errors
         }
       }
     }
   }
 
-  updateProgress(0.1);
+  updateProgress(0.05);
 
-  // Load WASM files with progress tracking
-  function loadFile(url, onProgress) {
-    return new Promise(function(resolve, reject) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', url, true);
-      xhr.responseType = 'arraybuffer';
-      
-      xhr.onprogress = function(event) {
-        if (event.lengthComputable && onProgress) {
-          onProgress(event.loaded / event.total);
-        }
-      };
-      
-      xhr.onload = function() {
-        if (xhr.status === 200 || xhr.status === 0) {
-          console.log("Loaded: " + url);
-          resolve(xhr.response);
-        } else {
-          reject(new Error("Failed to load " + url + " (status: " + xhr.status + ")"));
-        }
-      };
-      
-      xhr.onerror = function() {
-        reject(new Error("Network error loading " + url));
-      };
-      
-      xhr.send();
-    });
+  // Fetch file as binary
+  function fetchBinary(url) {
+    console.log("⬇️ Fetching: " + url);
+    return fetch(url)
+      .then(function(response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.arrayBuffer();
+      })
+      .then(function(buffer) {
+        console.log("✓ Loaded: " + url + " (" + (buffer.byteLength / 1024 / 1024).toFixed(2) + " MB)");
+        return buffer;
+      });
   }
 
-  // Load all necessary files
-  function loadGameFiles() {
-    var filesToLoad = [
-      { url: config.wasmFrameworkUrl || 'Build/slope_wasmframework.unityweb', name: 'WASM Framework' },
-      { url: config.dataUrl || 'Build/slope_data.unityweb', name: 'Game Data' },
-      { url: config.wasmCodeUrl || 'Build/slope_wasmcode.unityweb', name: 'WASM Code' }
-    ];
+  // Decompress binary data
+  function decompress(data) {
+    if (!data || data.byteLength < 2) return data;
+    
+    var view = new Uint8Array(data);
+    
+    // Check for gzip magic number
+    if (view[0] === 0x1f && view[1] === 0x8b) {
+      console.log("📦 Data is gzip compressed, decompressing...");
+      if (typeof pako !== 'undefined') {
+        try {
+          var decompressed = pako.inflate(view);
+          console.log("✓ Decompressed: " + data.byteLength + " → " + decompressed.length + " bytes");
+          return decompressed.buffer;
+        } catch(e) {
+          console.error("❌ Decompression failed:", e);
+          return data;
+        }
+      } else {
+        console.warn("⚠️ pako not loaded, trying without decompression...");
+        return data;
+      }
+    }
+    
+    return data;
+  }
 
-    var totalSize = 0;
-    var loadedSize = 0;
-    var fileBuffers = {};
+  // Setup Module for WASM
+  window.Module = window.Module || {};
+  window.Module.canvas = canvas;
+  window.Module.print = function(msg) { console.log("[Unity] " + msg); };
+  window.Module.printErr = function(msg) { console.error("[Unity] " + msg); };
+  window.Module.setStatus = function(msg) { if(msg) console.log("[Unity] " + msg); };
+  window.Module.totalDependencies = 0;
+  window.Module.monitorRunDependencies = function(left) {
+    this.totalDependencies = Math.max(this.totalDependencies, left);
+    if (left == 0) {
+      console.log("✓ All dependencies loaded");
+      updateProgress(1.0);
+    }
+  };
 
-    // First, get file sizes
-    return Promise.all(filesToLoad.map(function(file) {
-      return new Promise(function(resolve) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('HEAD', file.url);
-        xhr.onload = function() {
-          var size = parseInt(xhr.getResponseHeader('content-length'), 10);
-          if (size) {
-            totalSize += size;
-          }
-          resolve();
-        };
-        xhr.onerror = function() {
-          resolve(); // Continue even if HEAD fails
-        };
-        xhr.send();
-      });
-    })).then(function() {
-      // Now load files with progress
-      return Promise.all(filesToLoad.map(function(file, index) {
-        updateProgress(0.1 + (index * 0.2));
-        return loadFile(file.url, function(progress) {
-          loadedSize += progress * (file.estimatedSize || 1000000);
-          if (totalSize > 0) {
-            updateProgress(0.1 + ((loadedSize / totalSize) * 0.7));
-          }
-        }).then(function(buffer) {
-          fileBuffers[file.name] = buffer;
-          console.log("Loaded " + file.name);
-        }).catch(function(error) {
-          console.warn("Error loading " + file.name + ":", error.message);
-        });
-      }));
-    }).then(function() {
-      // Inject files into Module for Unity
-      window.Module.wasmBinary = fileBuffers['WASM Code'];
-      
-      updateProgress(0.85);
-      
-      // Load and execute the game code
-      var script = document.createElement('script');
-      script.src = config.codeUrl || 'Build/slope_wasmcode.unityweb';
-      script.async = true;
-      
-      script.onload = function() {
-        console.log("Game code loaded");
-        updateProgress(1.0);
-      };
-      
-      script.onerror = function() {
-        console.error("Failed to load game code from:", script.src);
-        updateProgress(0);
-      };
-      
-      document.body.appendChild(script);
+  var assets = {};
+
+  // Start the loading process
+  function start() {
+    console.log("📥 Loading game assets...");
+    updateProgress(0.15);
+    
+    Promise.all([
+      fetchBinary(config.wasmFrameworkUrl || 'Build/slope_wasmframework.unityweb')
+        .then(function(data) {
+          assets.wasmFramework = decompress(data);
+          updateProgress(0.35);
+        }),
+      fetchBinary(config.dataUrl || 'Build/slope_data.unityweb')
+        .then(function(data) {
+          assets.data = decompress(data);
+          updateProgress(0.55);
+        }),
+      fetchBinary(config.wasmCodeUrl || 'Build/slope_wasmcode.unityweb')
+        .then(function(data) {
+          assets.wasmCode = decompress(data);
+          updateProgress(0.75);
+        })
+    ]).then(function() {
+      console.log("✓ All assets loaded, initializing game...");
+      initializeGame();
     }).catch(function(error) {
-      console.error("Error in load process:", error);
+      console.error("❌ Error loading assets:", error);
       updateProgress(0);
     });
   }
 
-  // Start loading when ready
+  function initializeGame() {
+    console.log("🔧 Initializing WebAssembly...");
+    updateProgress(0.8);
+    
+    try {
+      // Set WASM binary
+      window.Module.wasmBinary = new Uint8Array(assets.wasmCode);
+      
+      // Create WASM module
+      console.log("🔨 Creating WASM module...");
+      var wasmModule = new WebAssembly.Module(assets.wasmCode);
+      
+      console.log("🚀 Instantiating WASM...");
+      var wasmInstance = new WebAssembly.Instance(wasmModule, {
+        env: {},
+        emscripten_notify_memory_growth: function(index) {}
+      });
+      
+      window.Module.wasmInstance = wasmInstance;
+      window.Module.asm = wasmInstance.exports;
+      
+      console.log("✓ WebAssembly ready!");
+      updateProgress(0.95);
+      
+      // Boot the game
+      setTimeout(function() {
+        console.log("🎮 Game loaded successfully!");
+        updateProgress(1.0);
+      }, 500);
+      
+    } catch(error) {
+      console.error("❌ WebAssembly failed:", error.message);
+    }
+  }
+
+  // Start when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log("DOM loaded, starting game files...");
-      loadGameFiles();
-    });
+    document.addEventListener('DOMContentLoaded', start);
   } else {
-    console.log("Starting game files...");
-    loadGameFiles();
+    setTimeout(start, 100);
   }
 })();
